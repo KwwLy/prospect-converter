@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Convertisseur Prospect → Import</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0f0f0e;
+    --bg2: #1a1a18;
+    --bg3: #232320;
+    --border: rgba(255,255,255,0.08);
+    --border-hi: rgba(255,255,255,0.16);
+    --text: #e8e6df;
+    --text2: #9e9c94;
+    --text3: #5c5a55;
+    --accent: #d4a853;
+    --accent2: #a07830;
+    --green: #5a9e70;
+    --red: #c05858;
+    --blue: #5880c0;
+    --pill: rgba(212,168,83,0.12);
+    --radius: 10px;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --serif: 'Instrument Serif', serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .shell {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 48px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-mark {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 600; color: #1a1208;
+  }
+  .logo-text h1 {
+    font-family: var(--serif);
+    font-size: 20px; font-weight: 400;
+    color: var(--text);
+    font-style: italic;
+  }
+  .logo-text p { font-size: 11px; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .saved-profiles { display: flex; gap: 8px; align-items: center; }
+  .saved-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+  .profile-chip {
+    padding: 4px 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--mono);
+  }
+  .profile-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* STEPS */
+  .steps {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 40px;
+  }
+  .step-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text3);
+    transition: all 0.2s;
+  }
+  .step-item.active { background: var(--pill); color: var(--accent); }
+  .step-item.done { color: var(--green); }
+  .step-num {
+    width: 20px; height: 20px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 500;
+    font-family: var(--mono);
+    flex-shrink: 0;
+  }
+  .step-item.done .step-num { background: var(--green); border-color: var(--green); color: #fff; }
+  .step-sep { width: 20px; height: 1px; background: var(--border); margin: auto 0; flex-shrink: 0; }
+
+  /* PANELS */
+  .panel {
+    display: none;
+    animation: fadeIn 0.25s ease;
+  }
+  .panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* CARD */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    width: 3px; height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* DROP ZONE */
+  .dropzone {
+    border: 2px dashed var(--border-hi);
+    border-radius: var(--radius);
+    padding: 56px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: var(--pill); }
+  .dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .dropzone-icon {
+    width: 48px; height: 48px;
+    margin: 0 auto 16px;
+    border: 1px solid var(--border-hi);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .dropzone h3 { font-weight: 400; font-size: 16px; margin-bottom: 6px; }
+  .dropzone p { color: var(--text3); font-size: 13px; }
+  .dropzone .hint { margin-top: 12px; font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+  /* PROSPECT NAME */
+  .prospect-input-wrap {
+    margin-top: 20px;
+    display: flex; gap: 12px; align-items: flex-end;
+  }
+  .form-group { flex: 1; }
+  .form-group label { display: block; font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .form-group input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .form-group input:focus { border-color: var(--accent); }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 18px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-primary { background: var(--accent); color: #1a1208; }
+  .btn-primary:hover { background: #e0b860; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+  }
+  .btn-ghost:hover { border-color: var(--border-hi); color: var(--text); }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-green:hover { background: #4a8e60; }
+
+  /* FILE INFO */
+  .file-info {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-top: 16px;
+  }
+  .file-icon { font-size: 20px; }
+  .file-details { flex: 1; }
+  .file-name { font-family: var(--mono); font-size: 13px; color: var(--text); }
+  .file-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .file-badge {
+    padding: 2px 8px;
+    background: var(--pill);
+    border-radius: 20px;
+    font-size: 11px;
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  /* MAPPING TABLE */
+  .mapping-grid {
+    display: grid;
+    grid-template-columns: 1fr 36px 1fr 36px;
+    gap: 8px;
+    align-items: center;
+  }
+  .mapping-header {
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .target-col {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    padding: 8px 10px;
+    background: var(--bg3);
+    border-radius: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .target-col.required::after {
+    content: '*';
+    color: var(--red);
+    margin-left: 4px;
+  }
+  .arrow-icon { text-align: center; color: var(--text3); font-size: 14px; }
+  .source-select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 7px 10px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+    cursor: pointer;
+  }
+  .source-select:focus { border-color: var(--accent); }
+  .source-select.auto-mapped { border-color: var(--green); }
+  .confidence-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .confidence-dot.high { background: var(--green); }
+  .confidence-dot.med  { background: var(--accent); }
+  .confidence-dot.low  { background: var(--red); }
+  .mapping-row { display: contents; }
+
+  /* TRANSFORM RULES */
+  .rule-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .rule-item:last-child { border-bottom: none; }
+  .rule-label { flex: 1; }
+  .rule-label strong { display: block; font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+  .rule-label span { font-size: 12px; color: var(--text2); }
+  .rule-toggle {
+    position: relative; width: 36px; height: 20px; flex-shrink: 0;
+  }
+  .rule-toggle input { opacity: 0; width: 0; height: 0; }
+  .rule-toggle .track {
+    position: absolute; inset: 0;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: background 0.2s;
+    cursor: pointer;
+  }
+  .rule-toggle input:checked + .track { background: var(--accent); border-color: var(--accent); }
+  .rule-toggle .thumb {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    background: var(--text3);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+    pointer-events: none;
+  }
+  .rule-toggle input:checked ~ .thumb { transform: translateX(16px); background: #1a1208; }
+
+  /* PREVIEW TABLE */
+  .preview-wrap { overflow-x: auto; }
+  .preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-family: var(--mono);
+    min-width: 900px;
+  }
+  .preview-table th {
+    padding: 8px 10px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    font-weight: 500;
+    color: var(--accent);
+    font-size: 11px;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+  }
+  .preview-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .preview-table tr:hover td { background: var(--bg3); color: var(--text); }
+  .flag-cell { background: rgba(192,88,88,0.15) !important; color: var(--red) !important; }
+
+  /* STATS */
+  .stats-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .stat-box {
+    flex: 1; min-width: 120px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-num { font-size: 28px; font-family: var(--mono); font-weight: 500; color: var(--text); }
+  .stat-label { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  /* LOADING */
+  .ai-loader {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px;
+    background: var(--pill);
+    border: 1px solid rgba(212,168,83,0.2);
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(212,168,83,0.3);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ai-loader p { font-size: 13px; color: var(--accent); }
+
+  /* DEPOT FILTER */
+  .depot-filter {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 12px;
+  }
+  .depot-chip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .depot-chip input { display: none; }
+  .depot-chip:has(input:checked) { border-color: var(--accent); color: var(--accent); background: var(--pill); }
+  .depot-chip .dot { width: 7px; height: 7px; border-radius: 50%; border: 1px solid currentColor; }
+  .depot-chip:has(input:checked) .dot { background: var(--accent); }
+
+  /* ALERTS */
+  .alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .alert-warn { background: rgba(212,168,83,0.1); border: 1px solid rgba(212,168,83,0.2); color: var(--accent); }
+  .alert-info { background: rgba(88,128,192,0.1); border: 1px solid rgba(88,128,192,0.2); color: var(--blue); }
+
+  /* ACTIONS BAR */
+  .actions {
+    display: flex; gap: 12px; align-items: center;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+  }
+  .actions .spacer { flex: 1; }
+
+  /* TAG */
+  .tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+  .tag-amber { background: var(--pill); color: var(--accent); }
+  .tag-green { background: rgba(90,158,112,0.15); color: var(--green); }
+  .tag-red { background: rgba(192,88,88,0.15); color: var(--red); }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+  .section-label {
+    font-size: 11px; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+
+  .collapsible summary {
+    cursor: pointer; list-style: none;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--text2);
+    padding: 8px 0;
+  }
+  .collapsible summary::marker { display: none; }
+  .collapsible summary::before { content: '▶'; font-size: 9px; transition: transform 0.2s; }
+  .collapsible[open] summary::before { transform: rotate(90deg); }
+
+  .mapping-section { margin-bottom: 32px; }
+  .mapping-section-title {
+    font-size: 12px; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-mark">⇄</div>
+      <div class="logo-text">
+        <h1>Prospect Converter</h1>
+        <p>Format import universel</p>
+      </div>
+    </div>
+    <div class="saved-profiles" id="saved-profiles-bar">
+      <span class="saved-label">Profils</span>
+    </div>
+  </header>
+
+  <!-- STEPS -->
+  <div class="steps" id="steps-bar">
+    <div class="step-item active" data-step="1"><div class="step-num">1</div> Upload</div>
+    <div class="step-sep"></div>
+    <div class="step-item" data-step="2"><div class="step-num">2</div> Mapping</div>
+    <div class="step-sep"></div>
+    <div class="step-item" data-step="3"><div class="step-num">3</div> Options</div>
+    <div class="step-sep"></div>
+    <div class="step-item" data-step="4"><div class="step-num">4</div> Export</div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- STEP 1 — UPLOAD -->
+  <!-- ============================================================ -->
+  <div class="panel active" id="panel-1">
+    <div class="card">
+      <div class="card-title">Fichier prospect</div>
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv">
+        <div class="dropzone-icon">📂</div>
+        <h3>Glisser le fichier ici</h3>
+        <p>ou cliquer pour parcourir</p>
+        <div class="hint">Formats acceptés : .xlsx · .xls · .csv</div>
+      </div>
+      <div id="file-info-wrap" style="display:none">
+        <div class="file-info">
+          <span class="file-icon">📊</span>
+          <div class="file-details">
+            <div class="file-name" id="file-name-lbl"></div>
+            <div class="file-meta" id="file-meta-lbl"></div>
+          </div>
+          <span class="file-badge" id="file-badge-lbl"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Informations prospect</div>
+      <div class="prospect-input-wrap">
+        <div class="form-group">
+          <label>Nom du prospect</label>
+          <input type="text" id="prospect-name" placeholder="ex: Klareo, McDonald's, Burger King…">
+        </div>
+        <div class="form-group" style="flex:0 0 200px">
+          <label>Ligne d'en-tête (numéro)</label>
+          <input type="number" id="header-row" value="1" min="1" max="10">
+        </div>
+        <div class="form-group" style="flex:0 0 200px">
+          <label>1ère ligne de données</label>
+          <input type="number" id="data-row" value="2" min="1" max="20">
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="btn-next-1" disabled>
+        Analyser avec IA →
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- STEP 2 — MAPPING -->
+  <!-- ============================================================ -->
+  <div class="panel" id="panel-2">
+    <div id="ai-loader" class="ai-loader">
+      <div class="spinner"></div>
+      <p id="ai-loader-text">Analyse des colonnes en cours…</p>
+    </div>
+
+    <div class="card" id="mapping-card" style="display:none">
+      <div class="card-title">Correspondance des colonnes</div>
+
+      <div class="alert alert-info">
+        ℹ️ Les correspondances détectées automatiquement sont indiquées en vert. Vérifiez et ajustez si nécessaire.
+      </div>
+
+      <!-- Identifiers -->
+      <div class="mapping-section">
+        <div class="mapping-section-title">Identifiants</div>
+        <div class="mapping-grid" id="grid-ids">
+          <div class="mapping-header">Colonne cible (import)</div>
+          <div></div>
+          <div class="mapping-header">Colonne source (prospect)</div>
+          <div class="mapping-header"></div>
+        </div>
+      </div>
+
+      <!-- Contact -->
+      <div class="mapping-section">
+        <div class="mapping-section-title">Contact destinataire</div>
+        <div class="mapping-grid" id="grid-contact"></div>
+      </div>
+
+      <!-- Address -->
+      <div class="mapping-section">
+        <div class="mapping-section-title">Adresse</div>
+        <div class="mapping-grid" id="grid-address"></div>
+      </div>
+
+      <!-- Dates & slots -->
+      <div class="mapping-section">
+        <div class="mapping-section-title">Créneaux horaires</div>
+        <div class="mapping-grid" id="grid-slots"></div>
+      </div>
+
+      <!-- Content -->
+      <div class="mapping-section">
+        <div class="mapping-section-title">Contenu / quantités</div>
+        <div class="mapping-grid" id="grid-content"></div>
+      </div>
+
+      <!-- Fixed values -->
+      <div class="mapping-section">
+        <div class="mapping-section-title">Valeurs fixes</div>
+        <div id="fixed-values-wrap"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-ghost" id="btn-back-2">← Retour</button>
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="btn-next-2">Configurer les options →</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- STEP 3 — OPTIONS -->
+  <!-- ============================================================ -->
+  <div class="panel" id="panel-3">
+    <div class="card">
+      <div class="card-title">Règles de transformation</div>
+      <div id="rules-list">
+
+        <div class="rule-item">
+          <div class="rule-label">
+            <strong>Regrouper par numéro d'intervention</strong>
+            <span>Fusionner les lignes avec le même ID et sommer les quantités</span>
+          </div>
+          <label class="rule-toggle">
+            <input type="checkbox" id="rule-group" checked>
+            <div class="track"></div>
+            <div class="thumb"></div>
+          </label>
+        </div>
+
+        <div class="rule-item">
+          <div class="rule-label">
+            <strong>Surligner les horaires ambigus</strong>
+            <span>Mettre en rouge les cellules timeSlot lorsque l'heure ne peut pas être déterminée avec certitude</span>
+          </div>
+          <label class="rule-toggle">
+            <input type="checkbox" id="rule-flag-hours" checked>
+            <div class="track"></div>
+            <div class="thumb"></div>
+          </label>
+        </div>
+
+        <div class="rule-item">
+          <div class="rule-label">
+            <strong>Supprimer les lignes sans quantité</strong>
+            <span>Exclure les lignes où handlingUnitsQuantity est vide ou égale à 0</span>
+          </div>
+          <label class="rule-toggle">
+            <input type="checkbox" id="rule-remove-empty" checked>
+            <div class="track"></div>
+            <div class="thumb"></div>
+          </label>
+        </div>
+
+        <div class="rule-item">
+          <div class="rule-label">
+            <strong>Horaire par défaut si absent</strong>
+            <span>Utiliser 05:00 → 13:00 lorsqu'aucun horaire n'est trouvé (ni champ, ni consigne)</span>
+          </div>
+          <label class="rule-toggle">
+            <input type="checkbox" id="rule-default-hours" checked>
+            <div class="track"></div>
+            <div class="thumb"></div>
+          </label>
+        </div>
+
+        <div class="rule-item">
+          <div class="rule-label">
+            <strong>Nettoyer les numéros de téléphone</strong>
+            <span>Prendre uniquement le premier numéro si plusieurs sont présents</span>
+          </div>
+          <label class="rule-toggle">
+            <input type="checkbox" id="rule-clean-phone" checked>
+            <div class="track"></div>
+            <div class="thumb"></div>
+          </label>
+        </div>
+
+        <div class="rule-item">
+          <div class="rule-label">
+            <strong>Scinder le nom en prénom + nom</strong>
+            <span>Diviser la colonne nom au milieu (point de coupure entre les mots)</span>
+          </div>
+          <label class="rule-toggle">
+            <input type="checkbox" id="rule-split-name" checked>
+            <div class="track"></div>
+            <div class="thumb"></div>
+          </label>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Filtrer par dépôt (sender.siteCode)</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Sélectionner les dépôts à inclure. Si aucun n'est coché, tous les dépôts sont exportés.</p>
+      <div class="depot-filter" id="depot-filter"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-ghost" id="btn-back-3">← Retour</button>
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="btn-next-3">Générer l'aperçu →</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- STEP 4 — EXPORT -->
+  <!-- ============================================================ -->
+  <div class="panel" id="panel-4">
+
+    <div class="stats-row" id="stats-row"></div>
+
+    <div class="card">
+      <div class="card-title">Aperçu (5 premières lignes)</div>
+      <div class="preview-wrap">
+        <table class="preview-table" id="preview-table">
+          <thead><tr id="preview-head"></tr></thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Exporter</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-green" id="btn-export-xlsx">⬇ Télécharger .xlsx</button>
+        <button class="btn btn-ghost" id="btn-save-profile">💾 Sauvegarder le profil prospect</button>
+        <button class="btn btn-ghost" id="btn-restart">↺ Nouveau fichier</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-ghost" id="btn-back-4">← Retour</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+const state = {
+  file: null,
+  workbook: null,
+  sourceHeaders: [],
+  sourceData: [],  // raw rows (array of arrays)
+  prospectName: '',
+  mapping: {},     // targetCol -> sourceCol or 'FIXED:value' or 'CONCAT:col1,col2'
+  fixedValues: {},
+  outputData: [],
+  flaggedRows: new Set(),
+};
+
+// Target columns definition
+const TARGET_COLS = [
+  // IDs
+  { key: 'externalOrderId',              label: 'externalOrderId',              group: 'ids',     required: true },
+  { key: 'reference',                    label: 'reference',                    group: 'ids' },
+  { key: 'sender.dealerCode',            label: 'sender.dealerCode',            group: 'ids' },
+  { key: 'sender.siteCode',              label: 'sender.siteCode',              group: 'ids' },
+  // Contact
+  { key: 'dropoff.contact.firstName',    label: 'dropoff.contact.firstName',    group: 'contact' },
+  { key: 'dropoff.contact.lastName',     label: 'dropoff.contact.lastName',     group: 'contact' },
+  { key: 'dropoff.contact.phoneNumber',  label: 'dropoff.contact.phoneNumber',  group: 'contact' },
+  { key: 'dropoff.contact.email',        label: 'dropoff.contact.email',        group: 'contact' },
+  // Address
+  { key: 'dropoff.address.full',         label: 'dropoff.address.full',         group: 'address' },
+  { key: 'dropoff.address.number',       label: 'dropoff.address.number',       group: 'address' },
+  { key: 'dropoff.address.road',         label: 'dropoff.address.road',         group: 'address' },
+  { key: 'dropoff.address.additional',   label: 'dropoff.address.additional',   group: 'address' },
+  { key: 'dropoff.address.postalCode',   label: 'dropoff.address.postalCode',   group: 'address' },
+  { key: 'dropoff.address.city',         label: 'dropoff.address.city',         group: 'address' },
+  { key: 'dropoff.address.country',      label: 'dropoff.address.country',      group: 'address' },
+  { key: 'dropoff.address.latitude',     label: 'dropoff.address.latitude',     group: 'address' },
+  { key: 'dropoff.address.longitude',    label: 'dropoff.address.longitude',    group: 'address' },
+  { key: 'dropoff.address.floor',        label: 'dropoff.address.floor',        group: 'address' },
+  { key: 'dropoff.address.hasElevator',  label: 'dropoff.address.hasElevator',  group: 'address' },
+  { key: 'dropoff.address.doorCode',     label: 'dropoff.address.doorCode',     group: 'address' },
+  // Slots
+  { key: 'dropoff.timeSlot.start',       label: 'dropoff.timeSlot.start',       group: 'slots' },
+  { key: 'dropoff.timeSlot.end',         label: 'dropoff.timeSlot.end',         group: 'slots' },
+  { key: 'dropoff.instructions',         label: 'dropoff.instructions',         group: 'slots' },
+  { key: 'dropoff.validationCode',       label: 'dropoff.validationCode',       group: 'slots' },
+  // Content
+  { key: 'content.handlingUnitsQuantity',label: 'content.handlingUnitsQuantity',group: 'content' },
+  { key: 'content.itemsQuantity',        label: 'content.itemsQuantity',        group: 'content' },
+  { key: 'content.amount.value',         label: 'content.amount.value',         group: 'content' },
+  { key: 'content.volume.value',         label: 'content.volume.value',         group: 'content' },
+  { key: 'content.weight.value',         label: 'content.weight.value',         group: 'content' },
+  { key: 'content.tags',                 label: 'content.tags',                 group: 'content' },
+  { key: 'pickup.useSiteAsPickup',       label: 'pickup.useSiteAsPickup',       group: 'content' },
+  { key: 'pickup.siteCode',              label: 'pickup.siteCode',              group: 'content' },
+  { key: 'metadata.deliveryType',        label: 'metadata.deliveryType',        group: 'content' },
+  { key: 'metadata.carrierCode',         label: 'metadata.carrierCode',         group: 'content' },
+];
+
+// ─────────────────────────────────────────────
+// STEP NAVIGATION
+// ─────────────────────────────────────────────
+function goStep(n) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + n).classList.add('active');
+  document.querySelectorAll('.step-item').forEach(s => {
+    const sn = +s.dataset.step;
+    s.classList.toggle('active', sn === n);
+    s.classList.toggle('done', sn < n);
+  });
+}
+
+// ─────────────────────────────────────────────
+// STEP 1 — FILE UPLOAD
+// ─────────────────────────────────────────────
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('drag');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+document.getElementById('prospect-name').addEventListener('input', checkStep1);
+
+function handleFile(file) {
+  state.file = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+    state.workbook = wb;
+    const sh = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(sh, { header: 1, defval: '' });
+    const headerRow = +document.getElementById('header-row').value - 1;
+    const dataRow   = +document.getElementById('data-row').value - 1;
+    state.sourceHeaders = (raw[headerRow] || []).map(h => String(h).trim());
+    state.sourceData    = raw.slice(dataRow);
+
+    document.getElementById('file-info-wrap').style.display = 'block';
+    document.getElementById('file-name-lbl').textContent = file.name;
+    document.getElementById('file-meta-lbl').textContent =
+      `${state.sourceHeaders.length} colonnes · ${state.sourceData.length} lignes`;
+    document.getElementById('file-badge-lbl').textContent = wb.SheetNames[0];
+    checkStep1();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function checkStep1() {
+  const hasFile = !!state.file && state.sourceHeaders.length > 0;
+  const hasName = document.getElementById('prospect-name').value.trim().length > 0;
+  document.getElementById('btn-next-1').disabled = !(hasFile && hasName);
+}
+
+document.getElementById('btn-next-1').addEventListener('click', async () => {
+  state.prospectName = document.getElementById('prospect-name').value.trim();
+
+  // Check saved profile
+  const saved = getSavedProfile(state.prospectName);
+  if (saved) {
+    state.mapping = saved.mapping;
+    state.fixedValues = saved.fixedValues || {};
+    goStep(2);
+    renderMappingUI();
+    document.getElementById('ai-loader').style.display = 'none';
+    document.getElementById('mapping-card').style.display = 'block';
+    return;
+  }
+
+  goStep(2);
+  await runAIMapping();
+});
+
+// ─────────────────────────────────────────────
+// STEP 2 — AI MAPPING
+// ─────────────────────────────────────────────
+async function runAIMapping() {
+  const loader = document.getElementById('ai-loader');
+  const card = document.getElementById('mapping-card');
+  loader.style.display = 'flex';
+  card.style.display = 'none';
+
+  const messages = [
+    {
+      role: 'user',
+      content: `Tu es un expert en conversion de données. Voici les colonnes d'un fichier prospect nommé "${state.prospectName}":
+
+Colonnes source disponibles: ${JSON.stringify(state.sourceHeaders)}
+
+Exemple de données (3 premières lignes):
+${state.sourceData.slice(0,3).map((r,i) => `Ligne ${i+1}: ${JSON.stringify(r)}`).join('\n')}
+
+Colonnes cibles du fichier d'import: ${JSON.stringify(TARGET_COLS.map(c => c.key))}
+
+Pour chaque colonne cible, propose la meilleure correspondance avec une colonne source, en te basant sur le nom des colonnes ET le contenu des données.
+
+Règles spéciales:
+- Pour "dropoff.timeSlot.start" et "dropoff.timeSlot.end": cherche des colonnes de date ET d'heure séparées
+- Pour "dropoff.address.full": peut être une concaténation de plusieurs colonnes (adresse + CP + ville)
+- Pour "dropoff.instructions": cherche une colonne de texte libre / consignes
+- Pour "externalOrderId": cherche un identifiant unique / numéro de commande
+- Pour "sender.siteCode": cherche un dépôt / site géographique
+- Pour "content.handlingUnitsQuantity", "content.itemsQuantity", "content.weight.value": peut être la même colonne de poids/quantité
+
+Réponds UNIQUEMENT en JSON valide (sans aucun texte avant ou après), avec ce format exact:
+{
+  "mapping": {
+    "externalOrderId": "NOM_COLONNE_SOURCE ou null",
+    "dropoff.address.full": "CONCAT:col1,col2,col3 si concaténation ou NOM_COLONNE",
+    "dropoff.timeSlot.start": "DATE_COL+HEURE_COL si deux colonnes ou NOM_COLONNE ou null",
+    ... (toutes les colonnes cibles)
+  },
+  "fixedValues": {
+    "sender.dealerCode": "valeur fixe si applicable",
+    "dropoff.address.country": "FRANCE"
+  },
+  "confidence": {
+    "externalOrderId": "high|med|low",
+    ...
+  }
+}`
+    }
+  ];
+
+  try {
+    document.getElementById('ai-loader-text').textContent = 'Analyse IA des colonnes en cours…';
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages,
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.map(b => b.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+    state.mapping = result.mapping || {};
+    state.fixedValues = result.fixedValues || {};
+    state.confidence = result.confidence || {};
+  } catch(e) {
+    console.error('AI mapping error:', e);
+    // Fallback: try basic keyword matching
+    state.mapping = autoMapFallback();
+    state.confidence = {};
+  }
+
+  loader.style.display = 'none';
+  card.style.display = 'block';
+  renderMappingUI();
+}
+
+function autoMapFallback() {
+  const map = {};
+  const headers = state.sourceHeaders;
+  const norm = h => h.toLowerCase().replace(/[^a-z0-9]/g, '');
+  TARGET_COLS.forEach(tc => {
+    const key = norm(tc.key.replace(/\./g,' '));
+    const found = headers.find(h => norm(h).includes(key) || key.includes(norm(h)));
+    map[tc.key] = found || null;
+  });
+  return map;
+}
+
+function renderMappingUI() {
+  const groups = { ids: 'grid-ids', contact: 'grid-contact', address: 'grid-address', slots: 'grid-slots', content: 'grid-content' };
+  Object.values(groups).forEach(id => {
+    const el = document.getElementById(id);
+    el.innerHTML = `
+      <div class="mapping-header">Colonne cible (import)</div>
+      <div></div>
+      <div class="mapping-header">Colonne source (prospect)</div>
+      <div></div>
+    `;
+  });
+
+  TARGET_COLS.forEach(tc => {
+    const gridId = groups[tc.group];
+    if (!gridId) return;
+    const grid = document.getElementById(gridId);
+    const val = state.mapping[tc.key] || '';
+    const conf = state.confidence?.[tc.key] || 'low';
+    const isFixed = state.fixedValues?.[tc.key];
+    const autoMapped = !!val && val !== 'null';
+
+    const targetDiv = document.createElement('div');
+    targetDiv.className = 'target-col' + (tc.required ? ' required' : '');
+    targetDiv.textContent = tc.key;
+    targetDiv.title = tc.key;
+
+    const arrow = document.createElement('div');
+    arrow.className = 'arrow-icon';
+    arrow.textContent = '→';
+
+    const selectWrap = document.createElement('div');
+    selectWrap.style.display = 'flex'; selectWrap.style.gap = '6px'; selectWrap.style.alignItems = 'center';
+
+    const sel = document.createElement('select');
+    sel.className = 'source-select' + (autoMapped ? ' auto-mapped' : '');
+    sel.dataset.target = tc.key;
+
+    // Build options
+    const opts = [
+      { v: '', l: '— non mappé —' },
+      ...state.sourceHeaders.map(h => ({ v: h, l: h })),
+      { v: '__instructions__', l: '✦ Colonne instructions (texte libre)' },
+      { v: '__concat__', l: '✦ Concaténer plusieurs colonnes…' },
+      { v: '__fixed__', l: '✦ Valeur fixe…' },
+    ];
+    opts.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.v; opt.textContent = o.l;
+      if (isFixed && o.v === '__fixed__') opt.selected = true;
+      else if (val && val !== 'null' && val === o.v) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    sel.addEventListener('change', () => {
+      if (sel.value === '__fixed__') {
+        const fv = prompt(`Valeur fixe pour "${tc.key}":`, state.fixedValues?.[tc.key] || '');
+        if (fv !== null) { state.fixedValues[tc.key] = fv; state.mapping[tc.key] = '__fixed__'; }
+        else sel.value = '';
+      } else if (sel.value === '__concat__') {
+        const cols = prompt(`Colonnes à concaténer pour "${tc.key}" (séparées par des virgules):`, '');
+        if (cols) { state.mapping[tc.key] = 'CONCAT:' + cols; }
+        else sel.value = '';
+      } else {
+        state.mapping[tc.key] = sel.value;
+        delete state.fixedValues[tc.key];
+      }
+    });
+
+    const dot = document.createElement('div');
+    dot.className = 'confidence-dot ' + (autoMapped ? (conf === 'high' ? 'high' : 'med') : 'low');
+    dot.title = conf === 'high' ? 'Confiance haute' : conf === 'med' ? 'Confiance moyenne' : autoMapped ? 'Confiance basse' : 'Non mappé';
+
+    selectWrap.appendChild(sel);
+    selectWrap.appendChild(dot);
+
+    grid.appendChild(targetDiv);
+    grid.appendChild(arrow);
+    grid.appendChild(selectWrap);
+    grid.appendChild(document.createElement('div'));
+  });
+
+  // Fixed values summary
+  const fixedWrap = document.getElementById('fixed-values-wrap');
+  fixedWrap.innerHTML = '';
+  const fvPairs = Object.entries(state.fixedValues);
+  if (fvPairs.length) {
+    fvPairs.forEach(([k, v]) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;color:var(--text2)';
+      row.innerHTML = `<span class="tag tag-amber" style="font-family:var(--mono)">${k}</span> = <span style="color:var(--text)">"${v}"</span>`;
+      fixedWrap.appendChild(row);
+    });
+  } else {
+    fixedWrap.innerHTML = '<p style="font-size:13px;color:var(--text3)">Aucune valeur fixe configurée.</p>';
+  }
+}
+
+document.getElementById('btn-back-2').addEventListener('click', () => goStep(1));
+document.getElementById('btn-next-2').addEventListener('click', () => {
+  // Collect current mapping from selects
+  document.querySelectorAll('.source-select').forEach(sel => {
+    state.mapping[sel.dataset.target] = sel.value;
+  });
+  buildDepotFilter();
+  goStep(3);
+});
+
+// ─────────────────────────────────────────────
+// STEP 3 — OPTIONS
+// ─────────────────────────────────────────────
+function buildDepotFilter() {
+  const sitecodeCol = state.mapping['sender.siteCode'];
+  const depot = document.getElementById('depot-filter');
+  depot.innerHTML = '';
+  if (!sitecodeCol || sitecodeCol === '__fixed__') {
+    depot.innerHTML = '<p style="font-size:13px;color:var(--text3)">Colonne sender.siteCode non mappée.</p>';
+    return;
+  }
+  const idx = state.sourceHeaders.indexOf(sitecodeCol);
+  if (idx < 0) return;
+  const unique = [...new Set(state.sourceData.map(r => String(r[idx] || '').trim()).filter(Boolean))].sort();
+  unique.forEach(d => {
+    const lbl = document.createElement('label');
+    lbl.className = 'depot-chip';
+    lbl.innerHTML = `<input type="checkbox" value="${d}"><span class="dot"></span>${d}`;
+    depot.appendChild(lbl);
+  });
+}
+
+document.getElementById('btn-back-3').addEventListener('click', () => goStep(2));
+document.getElementById('btn-next-3').addEventListener('click', () => {
+  generateOutput();
+  goStep(4);
+});
+
+// ─────────────────────────────────────────────
+// DATA PROCESSING
+// ─────────────────────────────────────────────
+function getColIdx(colName) {
+  if (!colName) return -1;
+  return state.sourceHeaders.indexOf(colName);
+}
+
+function getVal(row, colName) {
+  if (!colName) return '';
+  const idx = getColIdx(colName);
+  if (idx < 0) return '';
+  const v = row[idx];
+  if (v === null || v === undefined) return '';
+  return String(v).trim();
+}
+
+function mins(h) { return h[0]*60+h[1]; }
+
+function parseHour(s) {
+  if (!s) return null;
+  const m = String(s).match(/(\d{1,2})[hH:](\d{2})?/);
+  if (m) return [parseInt(m[1]), m[2] ? parseInt(m[2]) : 0];
+  return null;
+}
+
+function fromConsigne(c) {
+  if (!c) return [null,null,false];
+  if (/24[hH]\s*\/\s*24|ouvert\s+24/i.test(c)) return [null,null,false];
+  const rng = /(\d{1,2})[Hh](\d{2})?\s*[-\/ÀAa\s]\s*(\d{1,2})[Hh](\d{2})?/;
+  for (const m of [...c.matchAll(new RegExp(rng,'g'))]) {
+    const s = [+m[1], m[2]?+m[2]:0], e = [+m[3], m[4]?+m[4]:0];
+    if (s[0]<=23&&e[0]<=23&&mins(s)<mins(e)) return [s,e,true];
+    if (s[0]<=23&&e[0]<=23&&mins(s)>mins(e)) return [e,s,false];
+  }
+  const fp = /(?:a partir de|dès|des|a compter de)\s*(\d{1,2})[Hh](\d{2})?/i.exec(c);
+  if (fp) { const s=[+fp[1],fp[2]?+fp[2]:0]; if(s[0]<=23) return [s,null,false]; }
+  const sp = /(?:^|\n)\s*(\d{1,2})[Hh](\d{2})?\s*(?:\n|$)/.exec(c);
+  if (sp) { const s=[+sp[1],sp[2]?+sp[2]:0]; if(s[0]<=23) return [s,null,false]; }
+  return [null,null,false];
+}
+
+function fmtDatetime(dateVal, h) {
+  try {
+    let d;
+    if (dateVal instanceof Date) d = dateVal;
+    else if (typeof dateVal === 'number') d = new Date(Math.round((dateVal-25569)*86400*1000));
+    else d = new Date(dateVal);
+    if (isNaN(d)) return '';
+    const yr = d.getFullYear(), mo = String(d.getMonth()+1).padStart(2,'0'),
+          dy = String(d.getDate()).padStart(2,'0');
+    return `${yr}-${dy}-${mo}T${String(h[0]).padStart(2,'0')}:${String(h[1]).padStart(2,'0')}:00+01:00`;
+  } catch { return ''; }
+}
+
+function cleanPhone(t) {
+  if (!t) return '';
+  const phones = t.match(/\d{2}[.\s]\d{2}[.\s]\d{2}[.\s]\d{2}[.\s]\d{2}/g);
+  if (phones) return phones[0].trim();
+  const parts = t.trim().split(/\s{2,}/);
+  return parts[0].trim();
+}
+
+function splitName(n) {
+  if (!n) return ['', ''];
+  const words = n.trim().split(/\s+/);
+  if (words.length === 1) return [words[0], ''];
+  const mid = Math.floor(words.length/2);
+  return [words.slice(0,mid).join(' '), words.slice(mid).join(' ')];
+}
+
+function generateOutput() {
+  const m = state.mapping;
+  const fv = state.fixedValues || {};
+  const rules = {
+    group: document.getElementById('rule-group').checked,
+    flagHours: document.getElementById('rule-flag-hours').checked,
+    removeEmpty: document.getElementById('rule-remove-empty').checked,
+    defaultHours: document.getElementById('rule-default-hours').checked,
+    cleanPhone: document.getElementById('rule-clean-phone').checked,
+    splitName: document.getElementById('rule-split-name').checked,
+  };
+
+  // Selected depots
+  const selectedDepots = [...document.querySelectorAll('#depot-filter input:checked')].map(i => i.value);
+
+  // Helper to get mapped value from row
+  function getMapped(row, targetKey) {
+    const src = m[targetKey];
+    if (!src) return fv[targetKey] || '';
+    if (src === '__fixed__') return fv[targetKey] || '';
+    if (src.startsWith('CONCAT:')) {
+      return src.slice(7).split(',').map(c => getVal(row, c.trim())).filter(Boolean).join(' ');
+    }
+    return getVal(row, src);
+  }
+
+  // Group if needed
+  let rows = [...state.sourceData];
+  let groups = {};
+
+  const idKey = m['externalOrderId'];
+  const idIdx = idKey ? getColIdx(idKey) : -1;
+  const qtyKey = m['content.handlingUnitsQuantity'] || m['content.weight.value'];
+  const qtyIdx = qtyKey ? getColIdx(qtyKey) : -1;
+
+  if (rules.group && idIdx >= 0) {
+    rows.forEach(row => {
+      const id = String(row[idIdx] || '').trim();
+      if (!id) return;
+      if (!groups[id]) groups[id] = { row: [...row], qty: 0 };
+      const q = parseFloat(String(row[qtyIdx] || '0').replace(',','.')) || 0;
+      groups[id].qty += q;
+    });
+    rows = Object.values(groups).map(g => { if (qtyIdx>=0) g.row[qtyIdx]=g.qty; return g.row; });
+  }
+
+  // Filter by depot
+  const siteIdx = m['sender.siteCode'] ? getColIdx(m['sender.siteCode']) : -1;
+  if (selectedDepots.length > 0 && siteIdx >= 0) {
+    rows = rows.filter(r => selectedDepots.includes(String(r[siteIdx]||'').trim()));
+  }
+
+  // Remove empty qty
+  if (rules.removeEmpty && qtyIdx >= 0) {
+    rows = rows.filter(r => {
+      const q = parseFloat(String(r[qtyIdx]||'').replace(',','.')) || 0;
+      return q > 0;
+    });
+  }
+
+  // Build output rows
+  const DS = [5,0], DE = [13,0];
+  state.flaggedRows = new Set();
+
+  const dateColRaw = m['dropoff.timeSlot.start'] || '';
+  const timeStartColRaw = m['dropoff.timeSlot.start'] || '';
+  const timeEndColRaw   = m['dropoff.timeSlot.end']   || '';
+  const instrKey = m['dropoff.instructions'];
+
+  // Parse combined date+time fields like "DATECOL+TIMECOL"
+  function parseDateTimeField(raw) {
+    if (!raw) return { dateCol: null, timeCol: null };
+    const parts = raw.split('+');
+    return { dateCol: parts[0]?.trim() || null, timeCol: parts[1]?.trim() || null };
+  }
+  const startDT = parseDateTimeField(timeStartColRaw);
+  const endDT   = parseDateTimeField(timeEndColRaw);
+
+  state.outputData = rows.map((row, ri) => {
+    const out = {};
+    TARGET_COLS.forEach(tc => { out[tc.key] = ''; });
+
+    // Basic fields
+    TARGET_COLS.forEach(tc => {
+      if (['dropoff.contact.firstName','dropoff.contact.lastName',
+           'dropoff.timeSlot.start','dropoff.timeSlot.end',
+           'dropoff.contact.phoneNumber', 'content.handlingUnitsQuantity',
+           'content.itemsQuantity','content.weight.value'].includes(tc.key)) return;
+      out[tc.key] = getMapped(row, tc.key);
+    });
+
+    // Phone
+    const rawPhone = getMapped(row, 'dropoff.contact.phoneNumber');
+    out['dropoff.contact.phoneNumber'] = rules.cleanPhone ? cleanPhone(rawPhone) : rawPhone;
+
+    // Name split
+    const rawName = getMapped(row, 'dropoff.contact.firstName');
+    if (rules.splitName && rawName) {
+      const [fn, ln] = splitName(rawName);
+      out['dropoff.contact.firstName'] = fn;
+      out['dropoff.contact.lastName']  = ln;
+    } else {
+      out['dropoff.contact.firstName'] = rawName;
+      out['dropoff.contact.lastName']  = getMapped(row, 'dropoff.contact.lastName');
+    }
+
+    // Qty
+    const qRaw = getMapped(row, 'content.handlingUnitsQuantity') ||
+                 getMapped(row, 'content.weight.value');
+    const qNum = parseFloat(String(qRaw||'0').replace(',','.')) || 0;
+    out['content.handlingUnitsQuantity'] = qNum || '';
+    out['content.itemsQuantity']         = qNum || '';
+    out['content.weight.value']          = qNum || '';
+
+    // Timeslots
+    const dateRaw  = startDT.dateCol ? getVal(row, startDT.dateCol) : getMapped(row, 'dropoff.timeSlot.start');
+    const hdRaw    = startDT.timeCol ? getVal(row, startDT.timeCol) : null;
+    const hfRaw    = endDT.timeCol   ? getVal(row, endDT.timeCol)   : null;
+    const instrRaw = instrKey ? getMapped(row, 'dropoff.instructions') : '';
+
+    let hd = parseHour(hdRaw);
+    let hf = parseHour(hfRaw);
+    let flag = false;
+
+    if (!hd || !hf) {
+      const [sc, ec, conf] = fromConsigne(instrRaw);
+      if (sc && ec) { if (!hd) hd=sc; if (!hf) hf=ec; flag=!conf; }
+      else if (sc)  { if (!hd) hd=sc; if (!hf) { hf=DE; flag=true; } }
+      else          { if (!hd) hd=rules.defaultHours?DS:null; if (!hf) hf=rules.defaultHours?DE:null; }
+    }
+    if (hd && hf && mins(hd)>=mins(hf)) flag=true;
+
+    out['dropoff.timeSlot.start'] = hd ? fmtDatetime(dateRaw, hd) : '';
+    out['dropoff.timeSlot.end']   = hf ? fmtDatetime(dateRaw, hf) : '';
+
+    if (flag && rules.flagHours) state.flaggedRows.add(ri);
+
+    // Fixed values override
+    Object.entries(fv).forEach(([k,v]) => { out[k] = v; });
+
+    return out;
+  });
+
+  renderExport();
+}
+
+function renderExport() {
+  const data = state.outputData;
+  const flagged = state.flaggedRows;
+
+  // Stats
+  const statsRow = document.getElementById('stats-row');
+  statsRow.innerHTML = `
+    <div class="stat-box"><div class="stat-num">${data.length}</div><div class="stat-label">Lignes exportées</div></div>
+    <div class="stat-box"><div class="stat-num">${flagged.size}</div><div class="stat-label">Horaires à vérifier</div></div>
+    <div class="stat-box"><div class="stat-num">${TARGET_COLS.length}</div><div class="stat-label">Colonnes générées</div></div>
+    <div class="stat-box"><div class="stat-num">${state.prospectName}</div><div class="stat-label">Prospect</div></div>
+  `;
+
+  // Preview
+  const visibleCols = TARGET_COLS.filter(tc =>
+    ['externalOrderId','sender.siteCode','dropoff.contact.firstName','dropoff.contact.phoneNumber',
+     'dropoff.address.city','dropoff.timeSlot.start','dropoff.timeSlot.end','content.handlingUnitsQuantity'].includes(tc.key)
+  );
+  const head = document.getElementById('preview-head');
+  head.innerHTML = visibleCols.map(tc => `<th>${tc.key}</th>`).join('');
+  const body = document.getElementById('preview-body');
+  body.innerHTML = '';
+  data.slice(0,5).forEach((row, ri) => {
+    const tr = document.createElement('tr');
+    visibleCols.forEach(tc => {
+      const td = document.createElement('td');
+      td.textContent = row[tc.key] || '';
+      if (flagged.has(ri) && (tc.key==='dropoff.timeSlot.start'||tc.key==='dropoff.timeSlot.end')) {
+        td.className = 'flag-cell';
+      }
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
+// ─────────────────────────────────────────────
+// EXPORT
+// ─────────────────────────────────────────────
+document.getElementById('btn-export-xlsx').addEventListener('click', () => {
+  const data = state.outputData;
+  const flagged = state.flaggedRows;
+  const header = TARGET_COLS.map(tc => tc.key);
+  const wb = XLSX.utils.book_new();
+  const wsData = [header, ...data.map(r => header.map(k => r[k]))];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Red fill for flagged rows
+  const startIdx = header.indexOf('dropoff.timeSlot.start');
+  const endIdx   = header.indexOf('dropoff.timeSlot.end');
+  const redFill = { patternType: 'solid', fgColor: { rgb: 'FFCC0000' } };
+  [...flagged].forEach(ri => {
+    const xlRow = ri + 2; // 1=header, data starts at 2
+    [startIdx, endIdx].forEach(ci => {
+      const cellRef = XLSX.utils.encode_cell({ r: xlRow-1, c: ci });
+      if (!ws[cellRef]) ws[cellRef] = { t:'s', v:'' };
+      ws[cellRef].s = { fill: redFill };
+    });
+  });
+
+  XLSX.utils.book_append_sheet(wb, ws, "Fichier d'import");
+  const fname = `Import_${state.prospectName.replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fname, { cellStyles: true });
+});
+
+// ─────────────────────────────────────────────
+// PROFILE SAVE / LOAD
+// ─────────────────────────────────────────────
+function getSavedProfile(name) {
+  try {
+    const all = JSON.parse(localStorage.getItem('prospect_profiles') || '{}');
+    return all[name.toLowerCase()] || null;
+  } catch { return null; }
+}
+
+function saveProfile(name, mapping, fixedValues) {
+  try {
+    const all = JSON.parse(localStorage.getItem('prospect_profiles') || '{}');
+    all[name.toLowerCase()] = { name, mapping, fixedValues, savedAt: new Date().toISOString() };
+    localStorage.setItem('prospect_profiles', JSON.stringify(all));
+    renderSavedProfiles();
+  } catch {}
+}
+
+function renderSavedProfiles() {
+  try {
+    const bar = document.getElementById('saved-profiles-bar');
+    const all = JSON.parse(localStorage.getItem('prospect_profiles') || '{}');
+    const chips = Object.values(all).map(p => {
+      const chip = document.createElement('div');
+      chip.className = 'profile-chip';
+      chip.textContent = p.name;
+      chip.title = 'Chargé le ' + new Date(p.savedAt).toLocaleDateString('fr-FR');
+      chip.addEventListener('click', () => {
+        document.getElementById('prospect-name').value = p.name;
+        state.mapping = p.mapping;
+        state.fixedValues = p.fixedValues || {};
+        checkStep1();
+      });
+      return chip;
+    });
+    // Remove old chips
+    bar.querySelectorAll('.profile-chip').forEach(c => c.remove());
+    chips.forEach(c => bar.appendChild(c));
+  } catch {}
+}
+renderSavedProfiles();
+
+document.getElementById('btn-save-profile').addEventListener('click', () => {
+  saveProfile(state.prospectName, state.mapping, state.fixedValues);
+  document.getElementById('btn-save-profile').textContent = '✓ Profil sauvegardé';
+  setTimeout(() => { document.getElementById('btn-save-profile').textContent = '💾 Sauvegarder le profil prospect'; }, 2000);
+});
+
+// ─────────────────────────────────────────────
+// MISC NAVIGATION
+// ─────────────────────────────────────────────
+document.getElementById('btn-back-3').addEventListener('click', () => goStep(2));
+document.getElementById('btn-back-4').addEventListener('click', () => goStep(3));
+document.getElementById('btn-restart').addEventListener('click', () => {
+  state.file = null; state.workbook = null;
+  state.sourceHeaders = []; state.sourceData = [];
+  state.mapping = {}; state.fixedValues = {};
+  state.outputData = []; state.flaggedRows = new Set();
+  document.getElementById('file-input').value = '';
+  document.getElementById('file-info-wrap').style.display = 'none';
+  document.getElementById('btn-next-1').disabled = true;
+  goStep(1);
+});
+</script>
+</body>
+</html>
